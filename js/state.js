@@ -6,7 +6,7 @@ const S = {
   phase:'title', day:1, wage:1050, savings:0, up:{}, buff:null, buffWeek:0, own:false, muted:false,
   t:0, sales:0, tips:0, served:0, lost:0, misses:0, combo:0,
   seats:[null,null,null], spawnT:0, bench:newBench(), conf:null,
-  rice:8, cookT:0, fry:{kara:{t:0,stock:0}, ebi:{t:0,stock:0}}, mix:{step:0, stock:4}
+  rice:8, cookT:0, fry:{kara:{t:0,stock:0}, ebi:{t:0,stock:0}}, mix:{tuna:false, mayo:false, stock:4}
 };
 const stockOf = f => f === 'tuna' ? S.mix : S.fry[f];
 const buffOn = id => S.buff === id && S.buffWeek === weekOf(S.day);

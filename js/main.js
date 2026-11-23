@@ -20,7 +20,7 @@ function startDay(){
   S.conf = conf(S.day);
   Object.assign(S, {phase:'play', t:0, sales:0, tips:0, served:0, lost:0, misses:0, combo:0,
     seats:[null,null,null], spawnT:0.7, bench:newBench(), rice:riceCap(), cookT:0,
-    fry:{kara:{t:0, stock:2}, ebi:{t:0, stock:2}}, mix:{step:0, stock:4}});
+    fry:{kara:{t:0, stock:2}, ebi:{t:0, stock:2}}, mix:{tuna:false, mayo:false, stock:4}});
   hintFlash = 0;
   setHeader();
   seatsEl.querySelectorAll('.pop').forEach(p => p.remove());
@@ -104,7 +104,7 @@ function tick(dt){
 function endDay(){
   S.phase = 'result';
   S.seats = [null,null,null]; [0,1,2].forEach(renderSeat);
-  S.bench = newBench(); S.cookT = 0; S.mix.step = 0; FRIED.forEach(f => { S.fry[f].t = 0; });
+  S.bench = newBench(); S.cookT = 0; S.mix.tuna = S.mix.mayo = false; FRIED.forEach(f => { S.fry[f].t = 0; });
   renderBench(); updateBars(); updateHud();
   const cf = S.conf, hit = S.sales >= cf.target;
   const rank = hit && S.lost === 0 && S.misses <= 1 ? '優' : S.sales >= cf.target * 0.7 ? '良' : '可';

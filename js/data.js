@@ -2,22 +2,21 @@
 // データ表：具、申し送り、店長のコメント、週末の品ぞろえ、日ごとの難しさ
 
 const FILL = {
-  sake:  {name:'鮭',         short:'鮭',       color:'#f0876b', price:180},
-  ume:   {name:'梅',         short:'梅',       color:'#c8283c', price:150},
-  tuna:  {name:'ツナマヨ',   short:'ツナ',     color:'#f1dfa3', price:170},
-  kombu: {name:'昆布',       short:'昆布',     color:'#46552f', price:150},
-  shio:  {name:'塩むすび',   short:'塩',       color:null,      price:120},
-  mentai:{name:'明太子',     short:'明太',     color:'#ee6a8c', price:220},
-  okaka: {name:'おかか',     short:'おかか',   color:'#a06d3b', price:150},
-  kara:  {name:'唐揚げ',     short:'唐揚',     color:'#c8862f', price:230, fried:true},
-  ebi:   {name:'エビフライ', short:'エビ',     color:'#f29a4a', price:260, fried:true}
+  sake:  {name:'鮭',       color:'#f0876b', price:180},
+  ume:   {name:'梅',       color:'#c8283c', price:150},
+  tuna:  {name:'ツナマヨ',     color:'#f1dfa3', price:170},
+  kombu: {name:'昆布',     color:'#46552f', price:150},
+  shio:  {name:'塩むすび',       color:null,      price:120},
+  mentai:{name:'明太子',     color:'#ee6a8c', price:220},
+  okaka: {name:'おかか',   color:'#a06d3b', price:150},
+  kara:  {name:'唐揚げ',     color:'#c8862f', price:230, fried:true},
+  ebi:   {name:'エビフライ',     color:'#f29a4a', price:260, fried:true}
 };
 const FRIED = ['kara','ebi'];
-const MIX_STEPS = ['ツナを入れる','マヨを入れる','混ぜる'];
 const MIX_YIELD = 4;
 const stocked = f => f === 'tuna' || !!FILL[f].fried;
 const NEWS = {
-  1:'具は<b>鮭・梅・ツナマヨ</b>。2回にぎれば渡せます。ごはんは釜に8杯ぶん、減ってきたら<b>炊く</b>。ツナマヨが切れたら、<b>ツナ→マヨ→混ぜる</b>で4個ぶん仕込めます。',
+  1:'具は<b>鮭・梅・ツナマヨ</b>。2回にぎれば渡せます。ごはんは釜に8杯ぶん、減ってきたら<b>炊く</b>。ツナマヨが切れたら、ボウルに<b>ツナ</b>と<b>マヨ</b>を入れて<b>混ぜる</b>と4個ぶんできます。',
   2:'<b>昆布</b>が入荷。<b>のりなし</b>を頼むお客さんも来ます。今日から12時台は<b>昼ピーク</b>で混みます。',
   3:'<b>唐揚げ</b>はじめました。<b>揚げる</b>を押して少し待つとできあがり。切らす前に揚げておくこと。',
   4:'具を入れずににぎると<b>塩むすび</b>。<b>2個</b>たのむお客さんも来ます。',
