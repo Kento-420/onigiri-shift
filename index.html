@@ -146,6 +146,8 @@ dl.pay .sum{border-top:2px solid var(--nori);padding-top:6px;margin-top:3px;font
 @keyframes stamp{0%{opacity:0;transform:rotate(-12deg) scale(2.6)}100%{opacity:.92;transform:rotate(-12deg) scale(1)}}
 .cta{display:flex;flex-direction:column;gap:10px;width:100%;max-width:380px;flex:none}
 .cta .btn{flex:none}
+#overlay.lock .cta{pointer-events:none;opacity:.4}
+.cta{transition:opacity .2s}
 .shop{list-style:none;display:flex;flex-direction:column;gap:8px}
 .shop li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;
   padding-bottom:8px;border-bottom:1.5px dashed rgba(27,29,26,.25)}
@@ -724,6 +726,9 @@ function endDay(){
     '<div class="cta"><button class="btn big" type="button" id="nextBtn">' + (friday ? '週末へ' : dayName(S.day) + 'へ') + '</button>' +
     '<button class="btn small" type="button" id="retryBtn">この日をやり直す</button></div>'
   );
+  // 終業直後は手元の連打がそのまま当たるので、少しのあいだ押せなくする
+  overlay.classList.add('lock');
+  setTimeout(() => overlay.classList.remove('lock'), 1500);
   $('nextBtn').addEventListener('click', friday ? showWeekend : showIntro);
   $('retryBtn').addEventListener('click', () => {
     S.day = day; S.wage -= raise; S.savings -= total; save(); startDay();
