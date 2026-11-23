@@ -146,7 +146,10 @@ dl.pay .sum{border-top:2px solid var(--nori);padding-top:6px;margin-top:3px;font
 @keyframes stamp{0%{opacity:0;transform:rotate(-12deg) scale(2.6)}100%{opacity:.92;transform:rotate(-12deg) scale(1)}}
 .cta{display:flex;flex-direction:column;gap:10px;width:100%;max-width:380px;flex:none}
 .cta .btn{flex:none}
-#overlay.lock .cta{pointer-events:none;opacity:.4}
+#overlay.lock button{pointer-events:none}
+#overlay.lock .cta{opacity:.4}
+.retry{align-self:flex-end;flex:none;margin-top:12px;font-size:12px;padding:6px 12px;border:1.5px solid rgba(251,249,241,.5);border-radius:99px}
+.retry.armed{background:var(--ume);border-color:var(--ume)}
 .cta{transition:opacity .2s}
 .shop{list-style:none;display:flex;flex-direction:column;gap:8px}
 .shop li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;
@@ -711,7 +714,8 @@ function endDay(){
   save();
   beep(784, 0.12); beep(988, 0.12, 0.12); beep(1175, 0.25, 0.24);
   showOverlay(
-    '<h1 style="margin-top:24px">' + dayName(day) + '<br>おつかれさま</h1>' +
+    '<button class="retry" type="button" id="retryBtn">この日をやり直す</button>' +
+    '<h1>' + dayName(day) + '<br>おつかれさま</h1>' +
     '<div class="paper"><div class="hanko" role="img" aria-label="店長の評価 ' + rank + '">' + rank + '</div>' +
     '<h2>給与明細</h2><dl class="pay">' +
     '<dt>売上</dt><dd>' + yen(S.sales) + '円</dd>' +
@@ -723,14 +727,21 @@ function endDay(){
     '<dt class="sum">本日の支給</dt><dd class="sum">' + yen(total) + '円</dd></dl>' +
     '<p class="news"><b>店長より</b>　' + pick(COMMENT[rank]) + (raise ? ' 時給を' + raise + '円上げておくよ。' : '') + '</p>' +
     goalHTML() + '</div>' +
-    '<div class="cta"><button class="btn big" type="button" id="nextBtn">' + (friday ? '週末へ' : dayName(S.day) + 'へ') + '</button>' +
-    '<button class="btn small" type="button" id="retryBtn">この日をやり直す</button></div>'
+    '<div class="cta"><button class="btn big" type="button" id="nextBtn">' + (friday ? '週末へ' : dayName(S.day) + 'へ') + '</button></div>'
   );
   // 終業直後は手元の連打がそのまま当たるので、少しのあいだ押せなくする
   overlay.classList.add('lock');
   setTimeout(() => overlay.classList.remove('lock'), 1500);
   $('nextBtn').addEventListener('click', friday ? showWeekend : showIntro);
-  $('retryBtn').addEventListener('click', () => {
+  let armed = false;
+  $('retryBtn').addEventListener('click', e => {
+    const el = e.currentTarget;
+    if(!armed){
+      // 押しまちがい防止：2回目のタップで確定
+      armed = true; el.classList.add('armed'); el.textContent = 'もう一度押すとやり直し';
+      setTimeout(() => { armed = false; el.classList.remove('armed'); el.textContent = 'この日をやり直す'; }, 3000);
+      return;
+    }
     S.day = day; S.wage -= raise; S.savings -= total; save(); startDay();
   });
 }
