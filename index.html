@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>こめ八バイト日誌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* 縦一列：伝票帯 → 客席 → まな板 → 手元。藍の暖簾の中に米の白と海苔の黒。派手なのは終業のハンコだけ */
+  --ai:#1f3b63;
+  --ai-deep:#132741;
+  --kome:#fbf9f1;
+  --nori:#1b1d1a;
+  --ume:#d43a45;
+  --tamago:#f4b93e;
+  --ita:#dcb787;
+  --display:"Dela Gothic One","Hiragino Kaku Gothic StdN","Yu Gothic",sans-serif;
+  --body:"Zen Maru Gothic","Hiragino Maru Gothic ProN","Yu Gothic",sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--ai-deep);color:var(--kome);font-family:var(--body);font-weight:700;
+  -webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+button:focus-visible{outline:3px solid var(--tamago);outline-offset:2px}
+button:disabled{cursor:default}
+
+#app{position:relative;height:100%;max-width:460px;margin:0 auto;background:var(--ai);
+  display:flex;flex-direction:column;gap:10px;padding:12px 16px 16px;overflow:hidden auto}
+
+/* 伝票帯 */
+.hud{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
+.hud-day{display:flex;align-items:baseline;gap:10px}
+#dayLabel{font-family:var(--display);font-size:20px;letter-spacing:.04em}
+#clock{font-variant-numeric:tabular-nums;font-size:15px;opacity:.85}
+#muteBtn{font-size:12px;padding:6px 10px;border:1.5px solid rgba(251,249,241,.5);border-radius:99px}
+.timebar{grid-column:1/-1;height:8px;border-radius:99px;background:rgba(0,0,0,.3);overflow:hidden}
+.timebar i{display:block;height:100%;width:100%;background:var(--tamago);transform-origin:left}
+.hud-money{grid-column:1/-1;display:flex;justify-content:space-between;font-size:13px;font-variant-numeric:tabular-nums}
+.hud-money b{font-size:16px}
+
+/* 客席 */
+#seats{position:relative;flex:1 1 auto;min-height:178px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-items:end}
+.seat{display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;border-radius:12px;padding:4px 4px 6px;
+  transition:transform .12s}
+.seat:not(:disabled):active{transform:scale(.96)}
+.seat.empty{align-self:end;height:60px;justify-content:flex-end;font-size:11px;opacity:.35;
+  border-bottom:3px dashed rgba(251,249,241,.6);border-radius:0}
+.seat.can{background:rgba(244,185,62,.16);box-shadow:inset 0 0 0 2px var(--tamago)}
+.face{width:62px;height:62px}
+.face svg{width:100%;height:100%;display:block}
+.slip{list-style:none;width:100%;background:var(--kome);color:var(--nori);border-radius:4px;padding:5px 6px;
+  display:flex;flex-direction:column;gap:3px;font-size:13px;line-height:1.15;text-align:left;
+  border-top:3px dashed rgba(27,29,26,.25)}
+.slip li{display:flex;align-items:center;gap:5px}
+.slip svg{width:24px;height:23px;flex:none}
+.slip small{display:block;font-size:10px;color:var(--ume)}
+.slip li.done{opacity:.35;text-decoration:line-through}
+.pat{width:100%;height:6px;border-radius:99px;background:rgba(0,0,0,.3);overflow:hidden}
+.pat i{display:block;height:100%;background:var(--tamago)}
+.pat.hot i{background:var(--ume)}
+.seat.leaving{pointer-events:none;transition:transform .5s,opacity .5s;opacity:0}
+.seat.leaving.happy{transform:translateY(-14px)}
+.seat.leaving.angry{transform:translateX(18px)}
+.pop{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;pointer-events:none;
+  background:var(--kome);color:var(--nori);font-size:13px;padding:4px 9px;border-radius:99px;
+  animation:pop 1s ease-out forwards;z-index:2}
+.pop.bad{background:var(--ume);color:var(--kome)}
+@keyframes pop{0%{opacity:0;margin-top:14px}15%{opacity:1;margin-top:0}80%{opacity:1}100%{opacity:0;margin-top:-10px}}
+
+/* まな板 */
+.bench{display:flex;flex-direction:column;gap:6px}
+#hint{font-size:14px;min-height:1.4em}
+#hint b{color:var(--tamago)}
+#board{height:124px;border-radius:14px;background:var(--ita);
+  background-image:repeating-linear-gradient(92deg,rgba(120,80,30,.0) 0 22px,rgba(120,80,30,.13) 22px 24px);
+  box-shadow:inset 0 -6px 0 rgba(0,0,0,.14);display:grid;place-items:center}
+#board svg{height:100%;max-width:100%;display:block}
+#board.squish svg{animation:squish .22s ease-out}
+@keyframes squish{0%{transform:scale(1.12,.8)}60%{transform:scale(.96,1.05)}100%{transform:none}}
+
+/* 手元 */
+.hands{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:8px}
+.btn{flex:1;min-height:50px;padding:6px 8px;border-radius:12px;background:var(--kome);color:var(--nori);
+  font-weight:900;font-size:16px;box-shadow:0 4px 0 rgba(0,0,0,.4);
+  display:flex;align-items:center;justify-content:center;gap:6px;line-height:1.1}
+.btn:not(:disabled):active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+.btn:disabled{opacity:.36}
+.btn.next{box-shadow:0 4px 0 rgba(0,0,0,.4),0 0 0 3px var(--tamago)}
+.btn.big{flex:2.2;min-height:58px;font-size:20px;background:var(--tamago)}
+.btn.small{flex:1;font-size:13px;background:transparent;color:var(--kome);box-shadow:inset 0 0 0 1.5px rgba(251,249,241,.55)}
+.btn.on{background:var(--nori);color:var(--kome)}
+#fillings{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+#fillings .btn{min-height:46px;font-size:15px}
+.dot{width:14px;height:14px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.25)}
+
+/* かぶせ画面 */
+#overlay{position:absolute;inset:0;z-index:5;background:var(--ai);display:flex;flex-direction:column;
+  align-items:center;gap:16px;padding:0 16px 24px;overflow-y:auto}
+#overlay[hidden]{display:none}
+.noren{display:flex;gap:6px;width:100%;justify-content:center;border-top:8px solid var(--nori);flex:none}
+.noren span{width:26%;max-width:104px;padding:22px 0 26px;background:var(--kome);color:var(--ai);
+  font-family:var(--display);font-size:44px;text-align:center;border-radius:0 0 6px 6px;
+  transform-origin:top;animation:sway 3.6s ease-in-out infinite}
+.noren span:nth-child(2){animation-delay:.25s;padding-bottom:34px}
+.noren span:nth-child(3){animation-delay:.5s}
+@keyframes sway{0%,100%{transform:skewX(0)}50%{transform:skewX(-2.5deg)}}
+h1{font-family:var(--display);font-weight:400;font-size:30px;letter-spacing:.06em;text-wrap:balance;text-align:center}
+.lead{font-size:14px;text-align:center;max-width:22em;line-height:1.7;font-weight:500}
+.paper{width:100%;max-width:360px;background:var(--kome);color:var(--nori);border-radius:6px;padding:16px 18px;
+  position:relative;font-size:14px;line-height:1.6}
+.paper h2{font-family:var(--display);font-weight:400;font-size:18px;letter-spacing:.08em;
+  border-bottom:2px solid var(--nori);padding-bottom:6px;margin-bottom:8px}
+.steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:6px}
+.steps li{counter-increment:s;display:flex;gap:8px;align-items:baseline}
+.steps li::before{content:counter(s);font-family:var(--display);color:var(--ume);width:1.1em;flex:none}
+.news{margin-top:10px;padding-top:8px;border-top:1.5px dashed rgba(27,29,26,.35);font-weight:500}
+.news b{font-weight:900}
+dl.pay{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-variant-numeric:tabular-nums}
+dl.pay dd{text-align:right}
+dl.pay .sum{border-top:2px solid var(--nori);padding-top:6px;margin-top:3px;font-size:18px;font-weight:900}
+.memo{margin-top:10px;padding-top:8px;border-top:1.5px dashed rgba(27,29,26,.35);font-weight:500}
+.memo b{font-weight:900}
+.hanko{position:absolute;right:14px;top:10px;width:76px;height:76px;border-radius:50%;
+  border:4px solid var(--ume);color:var(--ume);font-family:var(--display);font-size:40px;
+  display:grid;place-items:center;transform:rotate(-12deg);opacity:.92;
+  animation:stamp .45s cubic-bezier(.2,1.6,.4,1) .5s both}
+@keyframes stamp{0%{opacity:0;transform:rotate(-12deg) scale(2.6)}100%{opacity:.92;transform:rotate(-12deg) scale(1)}}
+.cta{display:flex;flex-direction:column;gap:10px;width:100%;max-width:360px}
+.cta .btn{flex:none}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="hud">
+    <div class="hud-day"><span id="dayLabel">1日目</span><span id="clock">10:00</span></div>
+    <button id="muteBtn" type="button" aria-pressed="false">音 あり</button>
+    <div class="timebar" aria-hidden="true"><i id="timeFill"></i></div>
+    <div class="hud-money">
+      <span>売上 <b id="sales">0</b> / <span id="target">0</span>円</span>
+      <span>れんぞく <b id="combo">0</b>人</span>
+    </div>
+  </header>
+
+  <section id="seats" aria-label="お客さん">
+    <button class="seat empty" type="button" id="seat0" disabled>空席</button>
+    <button class="seat empty" type="button" id="seat1" disabled>空席</button>
+    <button class="seat empty" type="button" id="seat2" disabled>空席</button>
+  </section>
+
+  <section class="bench">
+    <p id="hint" aria-live="polite"></p>
+    <div id="board"></div>
+  </section>
+
+  <section class="hands" aria-label="手元">
+    <div class="row">
+      <button class="btn" type="button" id="riceBtn" style="flex:3">ごはんをよそう</button>
+      <button class="btn small" type="button" id="trashBtn">やりなおす</button>
+    </div>
+    <div id="fillings"></div>
+    <div class="row">
+      <button class="btn big" type="button" id="squeezeBtn">にぎる</button>
+      <button class="btn" type="button" id="noriBtn">のりを巻く</button>
+    </div>
+  </section>
+
+  <div id="overlay"></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const yen = n => Math.round(n).toLocaleString('ja-JP');
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+const FILL = {
+  sake:  {name:'鮭',       color:'#f0876b', price:180},
+  ume:   {name:'梅',       color:'#c8283c', price:150},
+  tuna:  {name:'ツナマヨ', color:'#f1dfa3', price:170},
+  kombu: {name:'昆布',     color:'#46552f', price:150},
+  shio:  {name:'塩むすび', color:null,      price:120},
+  mentai:{name:'明太子',   color:'#ee6a8c', price:220},
+  okaka: {name:'おかか',   color:'#a06d3b', price:150}
+};
+const NEWS = [
+  '',
+  '具は<b>鮭・梅・ツナマヨ</b>の3種類。ぜんぶのりを巻いて出します。',
+  '<b>昆布</b>が入荷。<b>のりなし</b>を頼むお客さんも来ます。',
+  '具を入れずににぎると<b>塩むすび</b>。<b>2個</b>たのむお客さんも来ます。',
+  '<b>明太子</b>はじめました。いちばん高い220円。',
+  '<b>おかか</b>追加。<b>3個</b>たのむお客さんが来ます。'
+];
+const COMMENT = {
+  '優': ['文句なし。明日もたのむよ。', 'お客さんが「早いね」って言ってたよ。', '手つきが板についてきたね。'],
+  '良': ['いい調子。あとは待たせないこと。', 'だいぶ慣れたね。その感じで。', 'わるくない。伝票をよく見てね。'],
+  '可': ['まあ、最初はこんなもんだ。', 'あせらず一個ずつ。明日がんばろう。', '具とのりの確認、もう一回やろうか。']
+};
+
+function conf(day){
+  const fills = ['sake','ume','tuna'];
+  if(day >= 2) fills.push('kombu');
+  if(day >= 3) fills.push('shio');
+  if(day >= 4) fills.push('mentai');
+  if(day >= 5) fills.push('okaka');
+  return {
+    fills,
+    noNori: day >= 2 ? 0.25 : 0,
+    maxItems: day >= 5 ? 3 : day >= 3 ? 2 : 1,
+    patience: Math.max(13, 24 - day * 1.5),
+    spawnEvery: Math.max(2.2, 5.5 - day * 0.5),
+    dur: day === 1 ? 60 : 75,
+    target: 750 + day * 250
+  };
+}
+const newBench = () => ({rice:false, fill:null, squeeze:0, nori:false});
+
+const S = {
+  phase:'title', day:1, wage:1050, savings:0, muted:false,
+  t:0, sales:0, tips:0, served:0, lost:0, misses:0, combo:0,
+  seats:[null,null,null], spawnT:0, bench:newBench(), conf:conf(1)
+};
+
+/* ---------- 保存 ---------- */
+function save(){
+  try{ localStorage.setItem('komehachi', JSON.stringify({day:S.day, wage:S.wage, savings:S.savings})); }catch(e){}
+}
+function load(){
+  try{
+    const d = JSON.parse(localStorage.getItem('komehachi') || 'null');
+    if(d && d.day >= 1){ S.day = d.day; S.wage = d.wage || 1050; S.savings = d.savings || 0; }
+  }catch(e){}
+}
+
+/* ---------- 音 ---------- */
+let ac = null;
+function beep(f, d, when, type){
+  if(S.muted) return;
+  try{
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    const t0 = ac.currentTime + (when || 0), o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || 'triangle'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.09, t0);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + d);
+    o.connect(g); g.connect(ac.destination);
+    o.start(t0); o.stop(t0 + d + 0.02);
+  }catch(e){}
+}
+
+/* ---------- 絵 ---------- */
+const TRI = 'M50 10 Q58 10 63 19 L89 66 Q97 84 78 86 L22 86 Q3 84 11 66 L37 19 Q42 10 50 10 Z';
+const NORI = 'M35 60 H65 L67 86 H33 Z';
+function triInner(f, nori){
+  const col = FILL[f].color;
+  return '<path d="' + TRI + '" fill="#fbf9f1" stroke="#d6cfba" stroke-width="2"/>' +
+    (col ? '<circle cx="50" cy="38" r="8" fill="' + col + '" stroke="rgba(0,0,0,.28)" stroke-width="1"/>' : '') +
+    (nori ? '<path d="' + NORI + '" fill="#1b1d1a"/>' : '');
+}
+const mini = (f, nori) => '<svg viewBox="0 0 100 96" aria-hidden="true">' + triInner(f, nori) + '</svg>';
+
+function boardSVG(){
+  const b = S.bench;
+  if(!b.rice) return '<svg viewBox="0 0 200 120" aria-hidden="true"><ellipse cx="100" cy="96" rx="48" ry="12" fill="none" stroke="rgba(27,29,26,.35)" stroke-width="2" stroke-dasharray="6 6"/></svg>';
+  const col = b.fill ? FILL[b.fill].color : null;
+  if(b.squeeze === 0){
+    return '<svg viewBox="0 0 200 120" aria-hidden="true"><ellipse cx="100" cy="86" rx="62" ry="26" fill="#fbf9f1" stroke="#d6cfba" stroke-width="2"/>' +
+      (col ? '<circle cx="100" cy="70" r="13" fill="' + col + '" stroke="rgba(0,0,0,.28)" stroke-width="1.5"/>' : '') + '</svg>';
+  }
+  const sc = [[1.6,.78],[1.42,1.02],[1.25,1.25]][b.squeeze - 1];
+  return '<svg viewBox="0 0 200 120" aria-hidden="true"><g transform="translate(100 114) scale(' + sc[0] + ' ' + sc[1] + ') translate(-50 -86)">' +
+    triInner(b.fill || 'shio', b.nori) + '</g></svg>';
+}
+
+const HAIR = [
+  c => '<path d="M20 44 Q20 16 50 16 Q80 16 80 44 Q65 30 50 32 Q35 30 20 44 Z" fill="' + c + '"/>',
+  c => '<path d="M19 62 Q14 16 50 16 Q86 16 81 62 L76 62 Q78 34 50 32 Q22 34 24 62 Z" fill="' + c + '"/>',
+  c => '<path d="M24 36 Q30 18 50 18 Q70 18 76 36 Q50 26 24 36 Z" fill="' + c + '"/>',
+  c => '<circle cx="50" cy="13" r="9" fill="' + c + '"/><path d="M20 44 Q20 16 50 16 Q80 16 80 44 Q65 30 50 32 Q35 30 20 44 Z" fill="' + c + '"/>'
+];
+function faceSVG(c){
+  const m = c.leaving === 'happy' ? 'joy' : c.leaving === 'angry' ? 'angry' : c.mood;
+  const st = 'fill="none" stroke="#1b1d1a" stroke-width="3" stroke-linecap="round"';
+  const mouth = m === 'joy' ? '<path d="M37 57 Q50 74 63 57 Z" fill="#7a2e2e"/>'
+    : m === 'happy' ? '<path d="M39 59 Q50 68 61 59" ' + st + '/>'
+    : m === 'flat' ? '<path d="M41 62 H59" ' + st + '/>'
+    : '<path d="M39 66 Q50 57 61 66" ' + st + '/>';
+  const brows = m === 'angry' ? '<path d="M33 39 L44 43 M67 39 L56 43" ' + st + '/>' : '';
+  return '<svg viewBox="0 0 100 100" aria-hidden="true">' +
+    '<path d="M12 100 Q12 76 50 76 Q88 76 88 100 Z" fill="' + c.cloth + '"/>' +
+    '<circle cx="50" cy="48" r="30" fill="' + c.skin + '"/>' + HAIR[c.hair](c.hairCol) +
+    '<circle cx="40" cy="49" r="3.2" fill="#1b1d1a"/><circle cx="60" cy="49" r="3.2" fill="#1b1d1a"/>' +
+    brows + mouth + '</svg>';
+}
+
+/* ---------- 客席 ---------- */
+const seatEls = [$('seat0'), $('seat1'), $('seat2')];
+const seatsEl = $('seats');
+
+function spawn(i){
+  const cf = S.conf;
+  const n = cf.maxItems === 1 ? 1 : (Math.random() < 0.55 ? 1 : 1 + Math.ceil(Math.random() * (cf.maxItems - 1)));
+  const items = [];
+  for(let k = 0; k < n; k++) items.push({f: pick(cf.fills), nori: Math.random() >= cf.noNori, done:false});
+  const max = cf.patience * (1 + 0.6 * (n - 1));
+  S.seats[i] = {
+    items, t:max, max, mood:'happy', leaving:null, leaveT:0,
+    hair: Math.floor(Math.random() * HAIR.length),
+    hairCol: pick(['#1b1d1a','#5a3d2b','#8f8f8a','#b5651d']),
+    skin: pick(['#f6d3b3','#eec39a','#f9dcc4']),
+    cloth: pick(['#d43a45','#f4b93e','#6aa27a','#fbf9f1','#8fb4d9','#c98bb3'])
+  };
+  renderSeat(i);
+  beep(520, 0.07);
+}
+function renderSeat(i){
+  const el = seatEls[i], c = S.seats[i];
+  if(!c){
+    el.className = 'seat empty'; el.disabled = true; el.textContent = '空席';
+    el.removeAttribute('aria-label'); return;
+  }
+  el.disabled = !!c.leaving;
+  el.className = 'seat' + (c.leaving ? ' leaving ' + c.leaving : '');
+  el.setAttribute('aria-label', '注文 ' + c.items.map(it => FILL[it.f].name + (it.nori ? '' : ' のりなし') + (it.done ? ' 済' : '')).join('、') + '。タップで渡す');
+  el.innerHTML = '<div class="face">' + faceSVG(c) + '</div><ul class="slip">' +
+    c.items.map(it => '<li class="' + (it.done ? 'done' : '') + '">' + mini(it.f, it.nori) +
+      '<span>' + FILL[it.f].name + (it.nori ? '' : '<small>のりなし</small>') + '</span></li>').join('') +
+    '</ul><div class="pat"><i></i></div>';
+  c.bar = el.querySelector('.pat i');
+  c.bar.style.width = Math.max(0, c.t / c.max * 100) + '%';
+  markSeats();
+}
+function markSeats(){
+  const ready = S.bench.squeeze === 3;
+  seatEls.forEach((el, i) => {
+    const c = S.seats[i];
+    el.classList.toggle('can', !!(ready && c && !c.leaving));
+  });
+}
+function pop(i, text, bad){
+  const p = document.createElement('div');
+  p.className = 'pop' + (bad ? ' bad' : '');
+  p.textContent = text;
+  p.style.left = (i * 33.333 + 16.666) + '%';
+  seatsEl.appendChild(p);
+  setTimeout(() => p.remove(), 1000);
+}
+function leave(i, how){
+  const c = S.seats[i];
+  c.leaving = how; c.leaveT = 0.55;
+  renderSeat(i);
+  // class をいったん外してから付け直し、退場の動きを出す
+  const el = seatEls[i];
+  el.classList.remove('leaving');
+  void el.offsetWidth;
+  el.classList.add('leaving');
+}
+
+function deliver(i){
+  const c = S.seats[i], b = S.bench;
+  if(S.phase !== 'play' || !c || c.leaving) return;
+  if(b.squeeze < 3){ flashHint(b.rice ? 'まだにぎれていません' : 'まず ごはんをよそう'); beep(200, 0.08, 0, 'square'); return; }
+  const key = b.fill || 'shio';
+  const it = c.items.find(x => !x.done && x.f === key && x.nori === b.nori);
+  S.bench = newBench();
+  if(!it){
+    S.misses++; S.combo = 0;
+    c.t -= c.max * 0.2;
+    pop(i, 'それ ちがうよ', true);
+    beep(170, 0.18, 0, 'square');
+    renderBench(); updateHud();
+    return;
+  }
+  it.done = true;
+  S.sales += FILL[key].price;
+  if(c.items.every(x => x.done)){
+    const r = c.t / c.max;
+    let tip = r > 0.75 ? 50 : r > 0.5 ? 30 : 0;
+    S.combo++; S.served++;
+    if(S.combo >= 3) tip += 20;
+    S.tips += tip;
+    pop(i, tip ? 'ありがとう！ +' + tip + '円' : 'どうも');
+    beep(660, 0.09); beep(880, 0.14, 0.09);
+    leave(i, 'happy');
+  }else{
+    pop(i, 'あと ' + c.items.filter(x => !x.done).length + '個');
+    beep(660, 0.09);
+    renderSeat(i);
+  }
+  renderBench(); updateHud();
+}
+seatEls.forEach((el, i) => el.addEventListener('click', () => deliver(i)));
+
+/* ---------- まな板と手元 ---------- */
+const board = $('board'), hint = $('hint');
+const riceBtn = $('riceBtn'), trashBtn = $('trashBtn'), squeezeBtn = $('squeezeBtn'), noriBtn = $('noriBtn');
+const fillBox = $('fillings');
+let hintFlash = 0;
+
+function buildFillings(){
+  fillBox.innerHTML = S.conf.fills.filter(f => f !== 'shio').map(f =>
+    '<button class="btn" type="button" id="fill-' + f + '" data-f="' + f + '"><i class="dot" style="background:' + FILL[f].color + '"></i>' + FILL[f].name + '</button>'
+  ).join('');
+}
+fillBox.addEventListener('click', e => {
+  const btn = e.target.closest('button'); if(!btn || btn.disabled) return;
+  const b = S.bench;
+  b.fill = b.fill === btn.dataset.f ? null : btn.dataset.f;
+  beep(440, 0.05); renderBench();
+});
+riceBtn.addEventListener('click', () => { S.bench.rice = true; beep(330, 0.06); renderBench(); });
+trashBtn.addEventListener('click', () => { S.bench = newBench(); beep(240, 0.06); renderBench(); });
+squeezeBtn.addEventListener('click', () => {
+  const b = S.bench; if(!b.rice || b.squeeze >= 3) return;
+  b.squeeze++;
+  beep(280 + b.squeeze * 70, 0.07);
+  renderBench();
+  board.classList.remove('squish'); void board.offsetWidth; board.classList.add('squish');
+});
+noriBtn.addEventListener('click', () => { S.bench.nori = !S.bench.nori; beep(500, 0.05); renderBench(); });
+
+function flashHint(text){
+  hint.innerHTML = '<b>' + text + '</b>';
+  hintFlash = 1.2;
+}
+function renderBench(){
+  const b = S.bench, play = S.phase === 'play';
+  board.innerHTML = boardSVG();
+  riceBtn.disabled = !play || b.rice;
+  trashBtn.disabled = !play || !b.rice;
+  squeezeBtn.disabled = !play || !b.rice || b.squeeze >= 3;
+  noriBtn.disabled = !play || b.squeeze < 3;
+  noriBtn.classList.toggle('on', b.nori);
+  noriBtn.textContent = b.nori ? 'のりを外す' : 'のりを巻く';
+  squeezeBtn.textContent = b.rice && b.squeeze > 0 && b.squeeze < 3 ? 'にぎる あと' + (3 - b.squeeze) + '回' : 'にぎる';
+  fillBox.querySelectorAll('button').forEach(el => {
+    el.disabled = !play || !b.rice || b.squeeze > 0;
+    el.classList.toggle('on', b.fill === el.dataset.f);
+    el.classList.toggle('next', play && b.rice && b.squeeze === 0 && !b.fill);
+  });
+  riceBtn.classList.toggle('next', play && !b.rice);
+  squeezeBtn.classList.toggle('next', play && b.rice && b.squeeze < 3 && (b.fill || b.squeeze > 0));
+  noriBtn.classList.toggle('next', play && b.squeeze === 3 && !b.nori);
+  if(hintFlash <= 0) hint.innerHTML = hintText();
+  markSeats();
+}
+function hintText(){
+  const b = S.bench;
+  if(S.phase !== 'play') return '';
+  if(!b.rice) return '伝票を見て、<b>ごはんをよそう</b>';
+  if(b.squeeze === 0) return b.fill ? FILL[b.fill].name + 'をのせた。<b>3回にぎる</b>' : '<b>具をえらぶ</b>' + (S.conf.fills.includes('shio') ? '（なしで塩むすび）' : '');
+  if(b.squeeze < 3) return '<b>あと' + (3 - b.squeeze) + '回</b> にぎる';
+  return (b.fill ? FILL[b.fill].name : '塩むすび') + (b.nori ? '・のりあり' : '・のりなし') + '。<b>お客さんをタップ</b>して渡す';
+}
+
+/* ---------- 進行 ---------- */
+function updateHud(){
+  $('sales').textContent = yen(S.sales);
+  $('combo').textContent = S.combo;
+  const fr = Math.min(1, S.t / S.conf.dur);
+  $('timeFill').style.transform = 'scaleX(' + (1 - fr) + ')';
+  const min = 600 + Math.floor(fr * 240 / 5) * 5;
+  $('clock').textContent = Math.floor(min / 60) + ':' + String(min % 60).padStart(2, '0');
+}
+function startDay(){
+  S.conf = conf(S.day);
+  Object.assign(S, {phase:'play', t:0, sales:0, tips:0, served:0, lost:0, misses:0, combo:0,
+    seats:[null,null,null], spawnT:0.7, bench:newBench()});
+  hintFlash = 0;
+  $('dayLabel').textContent = S.day + '日目';
+  $('target').textContent = yen(S.conf.target);
+  seatsEl.querySelectorAll('.pop').forEach(p => p.remove());
+  [0,1,2].forEach(renderSeat);
+  buildFillings(); renderBench(); updateHud();
+  overlay.hidden = true;
+  beep(523, 0.1); beep(784, 0.16, 0.1);
+}
+function tick(dt){
+  S.t += dt;
+  if(hintFlash > 0){ hintFlash -= dt; if(hintFlash <= 0) hint.innerHTML = hintText(); }
+  if(S.t >= S.conf.dur){ endDay(); return; }
+  S.spawnT -= dt;
+  if(S.spawnT <= 0){
+    const free = [0,1,2].filter(i => !S.seats[i]);
+    if(free.length){ spawn(pick(free)); S.spawnT = S.conf.spawnEvery * (0.8 + Math.random() * 0.4); }
+    else S.spawnT = 0.3;
+  }
+  S.seats.forEach((c, i) => {
+    if(!c) return;
+    if(c.leaving){
+      c.leaveT -= dt;
+      if(c.leaveT <= 0){ S.seats[i] = null; renderSeat(i); }
+      return;
+    }
+    c.t -= dt;
+    if(c.t <= 0){
+      S.lost++; S.combo = 0;
+      pop(i, 'もう行くね…', true);
+      beep(150, 0.25, 0, 'sawtooth');
+      leave(i, 'angry');
+      return;
+    }
+    const r = c.t / c.max;
+    c.bar.style.width = (r * 100) + '%';
+    const mood = r > 0.5 ? 'happy' : r > 0.25 ? 'flat' : 'angry';
+    if(mood !== c.mood){
+      c.mood = mood;
+      seatEls[i].querySelector('.face').innerHTML = faceSVG(c);
+      c.bar.parentNode.classList.toggle('hot', mood === 'angry');
+    }
+  });
+  updateHud();
+}
+function endDay(){
+  S.phase = 'result';
+  S.seats = [null,null,null]; [0,1,2].forEach(renderSeat);
+  S.bench = newBench(); renderBench();
+  const cf = S.conf, hit = S.sales >= cf.target;
+  const rank = hit && S.lost === 0 && S.misses <= 1 ? '優' : S.sales >= cf.target * 0.7 ? '良' : '可';
+  const base = S.wage * 4, bonus = hit ? 500 : 0, total = base + S.tips + bonus;
+  const raise = rank === '優' ? 30 : rank === '良' ? 10 : 0;
+  const day = S.day;
+  S.savings += total; S.wage += raise; S.day++;
+  save();
+  beep(784, 0.12); beep(988, 0.12, 0.12); beep(1175, 0.25, 0.24);
+  showOverlay(
+    '<h1 style="margin-top:28px">' + day + '日目 おつかれさま</h1>' +
+    '<div class="paper"><div class="hanko" role="img" aria-label="店長の評価 ' + rank + '">' + rank + '</div>' +
+    '<h2>給与明細</h2><dl class="pay">' +
+    '<dt>売上</dt><dd>' + yen(S.sales) + '円</dd>' +
+    '<dt>渡せた / 帰られた</dt><dd>' + S.served + '人 / ' + S.lost + '人</dd>' +
+    '<dt>渡しまちがい</dt><dd>' + S.misses + '回</dd>' +
+    '<dt>時給 ' + yen(S.wage - raise) + '円 × 4時間</dt><dd>' + yen(base) + '円</dd>' +
+    '<dt>チップ・テキパキ手当</dt><dd>' + yen(S.tips) + '円</dd>' +
+    '<dt>大入り袋' + (hit ? '' : '（目標 ' + yen(cf.target) + '円）') + '</dt><dd>' + yen(bonus) + '円</dd>' +
+    '<dt class="sum">本日の支給</dt><dd class="sum">' + yen(total) + '円</dd></dl>' +
+    '<p class="memo"><b>店長より</b>　' + pick(COMMENT[rank]) + (raise ? ' 時給を' + raise + '円上げておくよ。' : '') +
+    '<br>貯金 ' + yen(S.savings) + '円</p></div>' +
+    '<div class="cta"><button class="btn big" type="button" id="nextBtn">' + S.day + '日目へ</button>' +
+    '<button class="btn small" type="button" id="retryBtn">' + day + '日目をやり直す</button></div>'
+  );
+  $('nextBtn').addEventListener('click', showIntro);
+  $('retryBtn').addEventListener('click', () => {
+    S.day = day; S.wage -= raise; S.savings -= total; save(); startDay();
+  });
+}
+
+/* ---------- かぶせ画面 ---------- */
+const overlay = $('overlay');
+function showOverlay(html){ overlay.innerHTML = html; overlay.hidden = false; overlay.scrollTop = 0; }
+const newsOf = day => NEWS[Math.min(day, NEWS.length - 1)] && day < NEWS.length ? NEWS[day] : 'お客さんがさらにせっかちになります。';
+const NOREN = '<div class="noren" aria-hidden="true"><span>こ</span><span>め</span><span>八</span></div>';
+const STEPS = '<ol class="steps"><li>お客さんの伝票を見る</li><li>ごはんをよそって、具をえらぶ</li><li>3回にぎって、のりを巻く</li><li>お客さんをタップして渡す</li></ol>';
+
+function showTitle(){
+  S.phase = 'title';
+  const cont = S.day > 1;
+  showOverlay(NOREN +
+    '<h1>こめ八 バイト日誌</h1>' +
+    '<p class="lead">駅前のおむすび屋「こめ八」。昼の4時間、待たせず、まちがえず、にぎって渡す。</p>' +
+    '<div class="paper"><h2>しごとの流れ</h2>' + STEPS +
+    '<p class="news">待たせるほどお客さんの機嫌がわるくなり、ゼロになると帰ってしまいます。早く渡すとチップがつきます。</p></div>' +
+    '<div class="cta"><button class="btn big" type="button" id="goBtn">' + (cont ? S.day + '日目からつづける' : '出勤する') + '</button>' +
+    (cont ? '<button class="btn small" type="button" id="resetBtn">1日目からはじめる</button>' : '') + '</div>');
+  $('goBtn').addEventListener('click', cont ? showIntro : startDay);
+  if(cont) $('resetBtn').addEventListener('click', () => { S.day = 1; S.wage = 1050; S.savings = 0; save(); startDay(); });
+}
+function showIntro(){
+  S.phase = 'intro';
+  const cf = conf(S.day);
+  showOverlay(NOREN +
+    '<h1>' + S.day + '日目</h1>' +
+    '<div class="paper"><h2>本日の申し送り</h2><dl class="pay">' +
+    '<dt>時給</dt><dd>' + yen(S.wage) + '円</dd>' +
+    '<dt>売上目標</dt><dd>' + yen(cf.target) + '円</dd>' +
+    '<dt>貯金</dt><dd>' + yen(S.savings) + '円</dd></dl>' +
+    '<p class="news">' + newsOf(S.day) + '</p></div>' +
+    '<div class="cta"><button class="btn big" type="button" id="goBtn">出勤する</button></div>');
+  $('goBtn').addEventListener('click', startDay);
+}
+
+$('muteBtn').addEventListener('click', e => {
+  S.muted = !S.muted;
+  e.currentTarget.textContent = S.muted ? '音 なし' : '音 あり';
+  e.currentTarget.setAttribute('aria-pressed', String(S.muted));
+});
+
+/* ---------- 起動 ---------- */
+let last = 0;
+function frame(now){
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if(S.phase === 'play') tick(dt);
+  requestAnimationFrame(frame);
+}
+function start(data){
+  load();
+  if(data && data.day){ S.day = data.day; S.wage = data.wage; S.savings = data.savings; }
+  S.conf = conf(S.day);
+  $('dayLabel').textContent = S.day + '日目';
+  $('target').textContent = yen(S.conf.target);
+  buildFillings(); renderBench(); updateHud();
+  showTitle();
+  last = performance.now();
+  requestAnimationFrame(frame);
+}
+const hot = window.claude && window.claude.hot;
+if(hot && hot.snapshot) hot.snapshot(() => ({day:S.day, wage:S.wage, savings:S.savings}));
+if(hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+})();
+</script>
+</body>
+</html>
