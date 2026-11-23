@@ -195,7 +195,8 @@ dl.pay .sum{border-top:2px solid var(--nori);padding-top:6px;margin-top:3px;font
       <button class="btn busy" type="button" id="cookBtn" style="flex:1.3"><i class="fillbar"></i><span>炊く</span></button>
       <button class="btn small" type="button" id="trashBtn">やりなおす</button>
     </div>
-    <div class="row" id="fryRow" hidden>
+    <div class="row" id="fryRow">
+      <button class="btn" type="button" id="mixBtn"><i class="fillbar"></i><span>ツナを入れる</span></button>
       <button class="btn busy" type="button" id="fry-kara" data-f="kara"><i class="fillbar"></i><span>唐揚げを揚げる</span></button>
       <button class="btn busy" type="button" id="fry-ebi" data-f="ebi"><i class="fillbar"></i><span>エビを揚げる</span></button>
     </div>
@@ -228,8 +229,11 @@ const FILL = {
   ebi:   {name:'エビフライ', short:'エビ',     color:'#f29a4a', price:260, fried:true}
 };
 const FRIED = ['kara','ebi'];
+const MIX_STEPS = ['ツナを入れる','マヨを入れる','混ぜる'];
+const MIX_YIELD = 4;
+const stocked = f => f === 'tuna' || !!FILL[f].fried;
 const NEWS = {
-  1:'具は<b>鮭・梅・ツナマヨ</b>。2回にぎれば渡せます。ごはんは釜に8杯ぶん。減ってきたら<b>炊く</b>（少し時間がかかります）。',
+  1:'具は<b>鮭・梅・ツナマヨ</b>。2回にぎれば渡せます。ごはんは釜に8杯ぶん、減ってきたら<b>炊く</b>。ツナマヨが切れたら、<b>ツナ→マヨ→混ぜる</b>で4個ぶん仕込めます。',
   2:'<b>昆布</b>が入荷。<b>のりなし</b>を頼むお客さんも来ます。今日から12時台は<b>昼ピーク</b>で混みます。',
   3:'<b>唐揚げ</b>はじめました。<b>揚げる</b>を押して少し待つとできあがり。切らす前に揚げておくこと。',
   4:'具を入れずににぎると<b>塩むすび</b>。<b>2個</b>たのむお客さんも来ます。',
@@ -270,8 +274,9 @@ const S = {
   phase:'title', day:1, wage:1050, savings:0, up:{}, buff:null, buffWeek:0, own:false, muted:false,
   t:0, sales:0, tips:0, served:0, lost:0, misses:0, combo:0,
   seats:[null,null,null], spawnT:0, bench:newBench(), conf:null,
-  rice:8, cookT:0, fry:{kara:{t:0,stock:0}, ebi:{t:0,stock:0}}
+  rice:8, cookT:0, fry:{kara:{t:0,stock:0}, ebi:{t:0,stock:0}}, mix:{step:0, stock:4}
 };
+const stockOf = f => f === 'tuna' ? S.mix : S.fry[f];
 const buffOn = id => S.buff === id && S.buffWeek === weekOf(S.day);
 const riceCap = () => S.up.cooker ? 14 : 8;
 const cookTime = () => S.up.quick ? 4.5 : 8;
@@ -503,14 +508,15 @@ const board = $('board'), hint = $('hint');
 const riceBtn = $('riceBtn'), cookBtn = $('cookBtn'), trashBtn = $('trashBtn'), squeezeBtn = $('squeezeBtn'), noriBtn = $('noriBtn');
 const fillBox = $('fillings'), fryRow = $('fryRow');
 const fryBtns = {kara:$('fry-kara'), ebi:$('fry-ebi')};
+const mixBtn = $('mixBtn');
 let hintFlash = 0;
 
 function buildFillings(){
   fillBox.innerHTML = S.conf.fills.filter(f => f !== 'shio').map(f =>
     '<button class="btn" type="button" id="fill-' + f + '" data-f="' + f + '"><i class="dot" style="background:' + FILL[f].color + '"></i><span>' + FILL[f].short + '</span>' +
-    (FILL[f].fried ? '<b class="cnt">0</b>' : '') + '</button>'
+    (stocked(f) ? '<b class="cnt">0</b>' : '') + '</button>'
   ).join('');
-  fryRow.hidden = !S.conf.fills.includes('kara');
+  fryBtns.kara.hidden = !S.conf.fills.includes('kara');
   fryBtns.ebi.hidden = !S.conf.fills.includes('ebi');
 }
 fillBox.addEventListener('click', e => {
@@ -532,12 +538,20 @@ FRIED.forEach(f => fryBtns[f].addEventListener('click', () => {
   if(S.fry[f].t > 0 || (!S.up.fryer2 && S.fry[other].t > 0)) return;
   S.fry[f].t = FRY_TIME; beep(360, 0.08); renderBench();
 }));
+mixBtn.addEventListener('click', () => {
+  const m = S.mix;
+  m.step++;
+  beep(380 + m.step * 60, 0.06);
+  if(m.step >= MIX_STEPS.length){ m.step = 0; m.stock += MIX_YIELD; beep(620, 0.1, 0.06); flashHint('ツナマヨができた'); }
+  renderBench();
+});
 trashBtn.addEventListener('click', () => { S.bench = newBench(); beep(240, 0.06); renderBench(); });
 squeezeBtn.addEventListener('click', () => {
   const b = S.bench; if(!b.rice || b.squeeze >= 3) return;
-  if(b.squeeze === 0 && b.fill && FILL[b.fill].fried){
-    if(S.fry[b.fill].stock <= 0){ b.fill = null; renderBench(); return; }
-    S.fry[b.fill].stock--;
+  if(b.squeeze === 0 && b.fill && stocked(b.fill)){
+    const st = stockOf(b.fill);
+    if(st.stock <= 0){ b.fill = null; renderBench(); return; }
+    st.stock--;
   }
   b.squeeze++;
   beep(280 + b.squeeze * 70, 0.07);
@@ -564,6 +578,10 @@ function renderBench(){
     el.querySelector('span').textContent = fr.t > 0 ? FILL[f].short + ' 揚げ中' : (f === 'kara' ? '唐揚げを揚げる' : 'エビを揚げる');
     el.classList.toggle('next', play && !el.disabled && fr.stock === 0 && S.conf.fills.includes(f));
   });
+  mixBtn.disabled = !play;
+  mixBtn.querySelector('span').textContent = MIX_STEPS[S.mix.step];
+  mixBtn.querySelector('.fillbar').style.width = (S.mix.step / MIX_STEPS.length * 100) + '%';
+  mixBtn.classList.toggle('next', play && S.mix.stock === 0);
   trashBtn.disabled = !play || !b.rice;
   squeezeBtn.disabled = !play || !b.rice || b.squeeze >= 3;
   noriBtn.disabled = !play || b.squeeze < 2 || !!S.up.nori;
@@ -571,9 +589,9 @@ function renderBench(){
   noriBtn.textContent = S.up.nori ? 'のり おまかせ' : b.nori ? 'のりを外す' : 'のりを巻く';
   squeezeBtn.textContent = !b.rice || b.squeeze === 0 || b.squeeze === 3 ? 'にぎる' : b.squeeze === 1 ? 'にぎる あと1回' : 'もう1回でしっかり';
   fillBox.querySelectorAll('button').forEach(el => {
-    const f = el.dataset.f, fried = FILL[f].fried;
-    if(fried) el.querySelector('.cnt').textContent = S.fry[f].stock;
-    el.disabled = !play || !b.rice || b.squeeze > 0 || (fried && S.fry[f].stock <= 0);
+    const f = el.dataset.f, st = stocked(f) ? stockOf(f) : null;
+    if(st) el.querySelector('.cnt').textContent = st.stock;
+    el.disabled = !play || !b.rice || b.squeeze > 0 || (st && st.stock <= 0);
     el.classList.toggle('on', b.fill === f);
     el.classList.toggle('next', play && !el.disabled && b.squeeze === 0 && !b.fill);
   });
@@ -615,7 +633,7 @@ function startDay(){
   S.conf = conf(S.day);
   Object.assign(S, {phase:'play', t:0, sales:0, tips:0, served:0, lost:0, misses:0, combo:0,
     seats:[null,null,null], spawnT:0.7, bench:newBench(), rice:riceCap(), cookT:0,
-    fry:{kara:{t:0, stock:2}, ebi:{t:0, stock:2}}});
+    fry:{kara:{t:0, stock:2}, ebi:{t:0, stock:2}}, mix:{step:0, stock:4}});
   hintFlash = 0;
   setHeader();
   seatsEl.querySelectorAll('.pop').forEach(p => p.remove());
@@ -703,7 +721,7 @@ const goalHTML = () => S.own
 function endDay(){
   S.phase = 'result';
   S.seats = [null,null,null]; [0,1,2].forEach(renderSeat);
-  S.bench = newBench(); S.cookT = 0; FRIED.forEach(f => { S.fry[f].t = 0; });
+  S.bench = newBench(); S.cookT = 0; S.mix.step = 0; FRIED.forEach(f => { S.fry[f].t = 0; });
   renderBench(); updateBars(); updateHud();
   const cf = S.conf, hit = S.sales >= cf.target;
   const rank = hit && S.lost === 0 && S.misses <= 1 ? '優' : S.sales >= cf.target * 0.7 ? '良' : '可';
